@@ -1,3 +1,11 @@
 Intro
 =====
 Just starting out, stil a work in progress
+
+
+Requires building with sbt-launch-0.10.jar
+
+TODO: testing the plugin
+TODO: runtime checking ensuring dev env filters present
+TODO: inclusion list definition for file extension
+TODO: exclusion list definition for specific files
