@@ -5,6 +5,8 @@ Just starting out, stil a work in progress
 
 Requires building with sbt-launch-0.10.jar
 * includes sbt settings propagation in filtering
+TODO: filter test resources
+TODO: add dependency hooks
 TODO: List[String] dev environment definitions in proj properties
 TODO: runtime checking ensuring dev env filters present when task(s) executed
 TODO: integrate into resource processing

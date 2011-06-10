@@ -9,15 +9,15 @@ import sbt.complete._
 import sbt.complete.Parsers._
 import collection.Seq
 import io.Source
-import java.io._
 import Project.Initialize
 import java.util.{Enumeration, Properties => JProperties}
 import scala.collection.immutable._
-
+import java.io._
 
 object SbtFilterPlugin extends Plugin {
   val FilterResources = config("filter-resources")
-  val filterResources = TaskKey[Unit]("filter-resources")
+
+  val filterResources = TaskKey[Unit]("filter-resources", "filters files and replaces values using maven-style format ${}")
   //TODO provide more strict coupling to filter definitions and environment definitions, see README
   val currentFilterEnvSetting = SettingKey[String]("current-filter-env")
 
@@ -25,21 +25,37 @@ object SbtFilterPlugin extends Plugin {
   val filterIncludeExtensions = SettingKey[Seq[String] => Seq[String]]("filter-include-extensions")
 
   private def filterResourcesTask: Initialize[Task[Unit]] =
-  (currentFilterEnvSetting,filterIncludeExtensions, streams) map {
-      (curFilterEnvSetting, filterIncExts, streamss) =>
+  (currentFilterEnvSetting,filterIncludeExtensions, baseDirectory,streams) map {
+      (curFilterEnvSetting, filterIncExts, baseDirectory, streamss) =>
+
+    def filterPath = baseDirectory / "src"/ "main" / "resources" / "filters"
+    def filterSources = filterPath * "*.properties"
+    streamss.log.info(filterPath.toString)
 
 
-    //TODO find main source path
-    //def filterPath = mainSourcePath / "filters"
-    //def filterSources = filterPath * "*.properties"
+
+    val envPropertyFilesMap = HashMap[String, String]() ++ filterSources.getPaths.map(path => {
+      val pathFile: java.io.File = new java.io.File(path)
+      pathFile.getName.split("\\.")(0) -> pathFile.absolutePath
+    })
+    streamss.log.info(envPropertyFilesMap.toString)
+
+    //TODO add sbt-related property values
+
+//    if (filterPath.exists) {
+//      (mainResourcesOutputPath * "*").getFiles.foreach(x => filterResource(filterSources.get, x))
+//    } else {
+//      log.warn(filterPath.toString + " is missing")
+//    }
 
 
+//    streamss.log.info(SettingKey[String]("current-filter-env").toString)
+//    streamss.log.info(SettingKey[java.io.File]("base-directory").toString)
 
-    streamss.log.error(SettingKey[String]("current-filter-env").toString)
-    streamss.log.error(SettingKey[java.io.File]("base-directory").toString)
-    streamss.log.info(baseDirectory.toString)
+    //streamss.log.info(filterPath.getClass.toString)
+
     //    def filterResource(filterFilePaths: Iterable[Path], dest: File): Unit = {
-    //    val envPropertyFilesMap = HashMap[String, String]() ++ filterFilePaths.map(path => path.asFile.getName.split("\\.")(0) -> path.absolutePath)
+
 //    val propFile = new BufferedReader(new FileReader(envPropertyFilesMap(filterEnv.value)))
 //    val envProps = new JProperties
 //    streamss.log.debug("Using the following properties for filtering " + envProps.toString)
