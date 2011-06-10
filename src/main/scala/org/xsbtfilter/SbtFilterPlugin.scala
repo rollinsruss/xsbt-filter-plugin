@@ -61,6 +61,18 @@ object SbtFilterPlugin extends Plugin {
             "filter.env" -> currentFilterEnv)
         }
 
+        //finalize replacement values, where file def overrides base props
+        val replacements: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map() ++ sbtBaseProps
+        implicit def javaEnumeration2Iterator[A](e: Enumeration[A]) = new Iterator[A] {
+            def next = e.nextElement
+            def hasNext = e.hasMoreElements
+          }
+        //better way to do this?
+        envProps.propertyNames.foreach(key => {
+          replacements += (key.toString -> envProps.getProperty(key.toString))
+        })
+        streamss.log.info("Master replacement list for filtering "+ replacements.toString)
+
         //actual processing happens here, should put it in more appropriate location for readability
         if (filterPath.exists) {
           //TODO need the proper output path
@@ -71,18 +83,9 @@ object SbtFilterPlugin extends Plugin {
 
 
         def filterResource(targetFile: java.io.File): Unit = {
-          implicit def javaEnumeration2Iterator[A](e: Enumeration[A]) = new Iterator[A] {
-            def next = e.nextElement
-            def hasNext = e.hasMoreElements
-          }
 
-          def substitute(prop: JProperties, f: java.io.File) = {
-            val replacements: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map() ++ sbtBaseProps
 
-            //props file precedence is greater than sbt defaults
-            prop.propertyNames.foreach(key => {
-              replacements += (key.toString -> prop.getProperty(key.toString()))
-            })
+          def substitute(f: java.io.File) = {
 
             if (f.isFile) {
               val buf = new StringWriter
@@ -100,14 +103,10 @@ object SbtFilterPlugin extends Plugin {
               val out = new PrintWriter(f)
               out.print(buf.toString)
               out.close()
-
-              //for reference purposes it might be helpful to store a master list of
-              //the properties that were used for filtering
-              //not sure where that would be ideally dumped
             }
           }
 
-          substitute(envProps, targetFile)
+          substitute( targetFile)
         }
 
 
