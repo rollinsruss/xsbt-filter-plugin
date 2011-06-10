@@ -1,3 +1,5 @@
+import sbt.SettingKey
+
 sbtPlugin := true
 
 name := "xsbt-filter"
@@ -5,3 +7,4 @@ name := "xsbt-filter"
 organization := "org.xsbtfilter"
 
 publishMavenStyle := true
+

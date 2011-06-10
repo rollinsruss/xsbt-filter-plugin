@@ -24,6 +24,13 @@ object SbtFilterPlugin extends Plugin {
   //val filterExcludeFiles = SettingKey[PathFinder => PathFinder]("filter-exclude-files")
   val filterIncludeExtensions = SettingKey[Seq[String] => Seq[String]]("filter-include-extensions")
 
+  private def loadProperties(propFile:Reader): JProperties = {
+    val loeadedProps = new JProperties
+    loeadedProps.load(propFile)
+    propFile.close()
+    loeadedProps
+  }
+
   private def filterResourcesTask: Initialize[Task[Unit]] =
   (currentFilterEnvSetting,filterIncludeExtensions, baseDirectory,streams) map {
       (curFilterEnvSetting, filterIncExts, baseDirectory, streamss) =>
@@ -39,6 +46,8 @@ object SbtFilterPlugin extends Plugin {
       pathFile.getName.split("\\.")(0) -> pathFile.absolutePath
     })
     streamss.log.info(envPropertyFilesMap.toString)
+    val envProps = loadProperties(new BufferedReader(new FileReader(envPropertyFilesMap(curFilterEnvSetting))))
+    streamss.log.info("Using the following properties for filtering " + envProps.toString)
 
     //TODO add sbt-related property values
 
@@ -56,15 +65,7 @@ object SbtFilterPlugin extends Plugin {
 
     //    def filterResource(filterFilePaths: Iterable[Path], dest: File): Unit = {
 
-//    val propFile = new BufferedReader(new FileReader(envPropertyFilesMap(filterEnv.value)))
-//    val envProps = new JProperties
-//    streamss.log.debug("Using the following properties for filtering " + envProps.toString)
 
-//    try {
-//      envProps.load(propFile)
-//    } finally {
-//      propFile.close()
-//    }
     //
     //      def substitute(prop: JProperties, f: File) = {
     //        val replacements: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map() ++ sbtBaseProps
@@ -118,7 +119,7 @@ object SbtFilterPlugin extends Plugin {
    * default environment is dev
    */
   private def currentFilterEnv = {
-    "dev"
+    "development"
   }
 
   override lazy val settings = Seq(
