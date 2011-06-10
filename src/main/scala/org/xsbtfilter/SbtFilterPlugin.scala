@@ -23,7 +23,7 @@ object SbtFilterPlugin extends Plugin {
   val currentFilterEnvSetting = SettingKey[String]("current-filter-env")
 
   //val filterExcludeFiles = SettingKey[PathFinder => PathFinder]("filter-exclude-files")
-  val filterIncludeExtensions = SettingKey[Seq[String] => Seq[String]]("filter-include-extensions")
+  val filterIncludeExtensions = SettingKey[List[String] => List[String]]("filter-include-extensions")
 
   private def loadProperties(propFile: Reader): JProperties = {
     val loeadedProps = new JProperties
@@ -89,16 +89,19 @@ object SbtFilterPlugin extends Plugin {
         def filterResource(targetFile: java.io.File): Unit = {
           streamss.log.info("Filtering file " + targetFile.getAbsolutePath)
           //ensure file extension is in inclusion list
-          if (targetFile.isFile) {
+          val extension: String = targetFile.getName.split(".").last
+          if (targetFile.isFile){
+          //if (targetFile.isFile && filterIncExts.contains(extension)) {
             val buf = new StringWriter
             val in = Source.fromFile(targetFile)
             in.getLines.foreach(l => {
               var line = l
-              //is there a more efficient way to do this?
+              //TODO is there a more efficient way to do this?
               replacements foreach {
                 case (key, value) =>
                   line = line.replaceAll("\\$\\{\\s*" + key.toString + "\\s*\\}", value)
               }
+              //TODO ensure newline at the end, was getting whacked
               buf.write(line)
             })
 
@@ -115,8 +118,8 @@ object SbtFilterPlugin extends Plugin {
   /**
    * default file extensions to include
    */
-  private def filterIncludeExtensions(base: Seq[String]) = {
-    Seq(".properties", ".xml")
+  private def filterIncludeExtensions(base: List[String]) = {
+    List(".properties", ".xml")
   }
 
   /**
