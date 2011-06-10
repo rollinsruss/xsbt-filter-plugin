@@ -12,8 +12,8 @@ import io.Source
 import Project.Initialize
 import java.util.{Enumeration, Properties => JProperties}
 import scala.collection.immutable._
-import java.io._
 import xsbti.api.Path
+import java.io._
 
 object SbtFilterPlugin extends Plugin {
   val FilterResources = config("filter-resources")
@@ -64,56 +64,52 @@ object SbtFilterPlugin extends Plugin {
         //finalize replacement values, where file def overrides base props
         val replacements: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map() ++ sbtBaseProps
         implicit def javaEnumeration2Iterator[A](e: Enumeration[A]) = new Iterator[A] {
-            def next = e.nextElement
-            def hasNext = e.hasMoreElements
-          }
+          def next = e.nextElement
+
+          def hasNext = e.hasMoreElements
+        }
         //better way to do this?
         envProps.propertyNames.foreach(key => {
           replacements += (key.toString -> envProps.getProperty(key.toString))
         })
-        streamss.log.info("Master replacement list for filtering "+ replacements.toString)
+        streamss.log.info("Master replacement list for filtering " + replacements.toString)
 
         //actual processing happens here, should put it in more appropriate location for readability
         if (filterPath.exists) {
-          //TODO need the proper output path
-          (target * "*").get.foreach(filterResource)
+          //TODO need the proper output path, what setting to reference?
+          val targetPath: java.io.File = target / "scala-2.8.1.final" / "classes"
+          streamss.log.info("Filtering target path " + targetPath.getAbsolutePath)
+
+          (targetPath * "*").get.foreach(filterResource)
         } else {
           streamss.log.error(filterPath.toString + " is missing!!")
         }
 
-
+        //TODO extract this to take a map and single file
         def filterResource(targetFile: java.io.File): Unit = {
+          streamss.log.info("Filtering file " + targetFile.getAbsolutePath)
+          //ensure file extension is in inclusion list
+          if (targetFile.isFile) {
+            val buf = new StringWriter
+            val in = Source.fromFile(targetFile)
+            in.getLines.foreach(l => {
+              var line = l
+              //is there a more efficient way to do this?
+              replacements foreach {
+                case (key, value) =>
+                  line = line.replaceAll("\\$\\{\\s*" + key.toString + "\\s*\\}", value)
+              }
+              buf.write(line)
+            })
 
-
-          def substitute(f: java.io.File) = {
-
-            if (f.isFile) {
-              val buf = new StringWriter
-              val in = Source.fromFile(f)
-              in.getLines.foreach(l => {
-                var line = l
-                //is there a more efficient way to do this?
-                replacements foreach {
-                  case (key, value) =>
-                    line = line.replaceAll("\\$\\{\\s*" + key.toString + "\\s*\\}", value)
-                }
-                buf.write(line)
-              })
-
-              val out = new PrintWriter(f)
-              out.print(buf.toString)
-              out.close()
-            }
+            val out = new PrintWriter(targetFile)
+            out.print(buf.toString)
+            out.close()
+            streamss.log.info("Done filtering")
           }
-
-          substitute( targetFile)
         }
-
-
-      //TODO add another property value the specify the list of extensions to include in filter replacement( .properties, .xml, .conf)
-
-
     }
+
 
   //describedAs "Filter the main resource files for variable substitutions."
   /**
