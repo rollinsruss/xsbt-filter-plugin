@@ -1,0 +1,1 @@
+Elements like ${key} shouldn't be replaced in file extensions not defined in the inclusion setting

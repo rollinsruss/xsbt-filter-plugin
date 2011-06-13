@@ -1,0 +1,144 @@
+/*
+ * Copyright 2011 Yuen Ho Wong
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License.  You may obtain a copy
+ * of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
+
+package org.bitbucket.sbt_filter_plugin
+
+import java.util.{Enumeration, Properties => JProperties}
+
+import scala.io.Source
+import scala.collection.immutable._
+
+import sbt._
+import java.io._
+
+trait SBTWebappFilterPlugin extends BasicWebScalaProject with MavenStyleWebScalaPaths with SBTFilterPlugin {
+
+  def filterWebappResourcesAction = task {
+    if (filterPath.exists) {
+      val webappXmlFiles = temporaryWarPath / "WEB-INF" * "*.xml" +++ temporaryWarPath / "META-INF" ** "*.xml"
+      webappXmlFiles.getFiles.foreach(x => filterResource(filterSources.get, x))
+    } else {
+      log.warn(filterPath.toString + " is missing")
+    }
+    None
+  } describedAs "Filter the webapp resource files for variable substitutions"
+
+  lazy val filterWebappResources = filterWebappResourcesAction
+
+  override lazy val prepareWebapp = filterWebappResources dependsOn (prepareWebappAction)
+}
+
+trait SBTFilterPlugin extends BasicScalaProject with MavenStyleScalaPaths {
+
+  lazy val filterEnv = propertyOptional[String]("dev")
+
+  def filterResource(filterFilePaths: Iterable[Path], dest: File): Unit = {
+
+    implicit def javaEnumeration2Iterator[A](e: Enumeration[A]) = new Iterator[A] {
+      def next = e.nextElement
+
+      def hasNext = e.hasMoreElements
+    }
+
+    def sbtBaseProps: Map[String, String] = {
+      Map("project.name" -> projectName.value,
+        "project.name" -> projectName.value,
+        "project.organization" -> projectOrganization.value,
+        "project.version" -> projectVersion.value.toString,
+        "build.scala.versions" -> buildScalaVersions.value,
+        "filter.env" -> filterEnv.value)
+    }
+    //TODO would be ideal to also have a hook with which devs could supply a Map[String,String]
+    // prior to actual substitution (thus enabling full overwrite and customization of replacement values)
+
+    def substitute(prop: JProperties, f: File) = {
+      val replacements: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map() ++ sbtBaseProps
+
+      //props file precedence is greater than sbt defaults
+      prop.propertyNames.foreach(key => {
+        replacements += (key.toString -> prop.getProperty(key.toString()))
+      })
+
+      if (f.isFile) {
+        val buf = new StringWriter
+        val in = Source.fromFile(f)
+        in.getLines.foreach(l => {
+          var line = l
+          //is there a more efficient way to do this?
+          replacements foreach {
+            case (key, value) =>
+              line = line.replaceAll("\\$\\{\\s*" + key.toString + "\\s*\\}", value)
+          }
+          buf.write(line)
+        })
+
+        val out = new PrintWriter(f)
+        out.print(buf.toString)
+        out.close()
+
+        //for reference purposes it might be helpful to store a master list of
+        //the properties that were used for filtering
+        // not sure where that'd be ideally dumped
+      }
+    }
+
+    val envPropertyFilesMap = HashMap[String, String]() ++ filterFilePaths.map(path => path.asFile.getName.split("\\.")(0) -> path.absolutePath)
+
+    val propFile = new BufferedReader(new FileReader(envPropertyFilesMap(filterEnv.value)))
+    val envProps = new JProperties
+    try {
+      envProps.load(propFile)
+    } finally {
+      propFile.close()
+    }
+
+    log.debug(envProps.toString)
+
+    substitute(envProps, dest)
+  }
+
+  def filterPath = mainSourcePath / "filters"
+
+  //TODO add another property value the specify the list of extensions to include in filter replacement( .properties, .xml, .conf)
+
+  def filterSources = filterPath * "*.properties"
+
+  def filterMainResourcesAction = task {
+    if (filterPath.exists) {
+      (mainResourcesOutputPath * "*").getFiles.foreach(x => filterResource(filterSources.get, x))
+    } else {
+      log.warn(filterPath.toString + " is missing")
+    }
+    None
+  } describedAs "Filter the main resource files for variable substitutions."
+
+  lazy val filterMainResources = filterMainResourcesAction
+
+  def filterTestResourcesAction = task {
+    if (filterPath.exists) {
+      (testResourcesOutputPath * "*").getFiles.foreach(x => filterResource(filterSources.get, x))
+    } else {
+      log.warn(filterPath.toString + " is missing")
+    }
+    None
+  } describedAs "Filter the test resource files for variable substitutions."
+
+  lazy val filterTestResources = filterTestResourcesAction
+
+  override lazy val copyResources = filterMainResources dependsOn (copyResourcesAction)
+  override lazy val copyTestResources = filterTestResources dependsOn (copyTestResourcesAction)
+
+}
