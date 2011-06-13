@@ -17,11 +17,12 @@ import java.io._
 
 object SbtFilterPlugin extends Plugin {
 
-  val FilterResources = config("filter-resources")
+  val FilterResources = config("filter-resources")extend(Runtime)
 
   val filterMainResources = TaskKey[Unit]("filter-resources", "filters files and replaces values using the maven-style format of ${}")
   filterMainResources.dependsOn(copyResources)//TODO this appears to have no effect
   //TODO create test resources task
+  //perhaps its best not to require dependencies and allow the end user to wire up the build the way they want it
   //override lazy val copyResources = filterMainResources dependsOn (copyResourcesAction)
 
   //TODO provide more strict coupling to filter definitions and environment definitions, see README
@@ -86,6 +87,7 @@ object SbtFilterPlugin extends Plugin {
         if (filterPath.exists) {
           //TODO need the proper output path, what setting to reference?
           val targetPath: java.io.File = target / "scala-2.8.1.final" / "classes"
+          //log.error(classDirectory.getAbsolutePath)
           log.debug("Filtering target path " + targetPath.getAbsolutePath)
 
           (targetPath * "*").get.foreach(filterResource)
@@ -142,11 +144,12 @@ object SbtFilterPlugin extends Plugin {
   }
 
   override lazy val settings = Seq(
-    //filterMainResources <<= filterResourcesTask.dependsOn(copyResources),
+
     filterMainResources <<= filterResourcesTask,
     currentFilterEnvSetting := currentFilterEnv,
     filterIncludeExtensions := filterIncludeExtensions _//,
-
+    //neither of these attempts worked at ensuring the task dependency, will require manual wiring for now by consuming projects
+    //filterMainResources <<= filterResourcesTask.dependsOn(copyResources),
     //filterMainResources <<= filterMainResources.dependsOn(copyResources)
 
   )
