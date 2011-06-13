@@ -89,7 +89,6 @@ object SbtFilterPlugin extends Plugin {
 
         //TODO extract this to take a map and single file
         def filterResource(targetFile: java.io.File): Unit = {
-          log.info("Filtering file " + targetFile.getAbsolutePath)
           val fileName: String = targetFile.getName
           //TODO implement some greatly improved matcher on inclusion list
           //ensure file extension is in inclusion list
@@ -97,6 +96,7 @@ object SbtFilterPlugin extends Plugin {
           //val extension: String = extSplit.last
           if (targetFile.isFile  && (fileName.contains(".properties") || fileName.contains(".xml"))){
           //if (targetFile.isFile && filterIncExts.contains(extension)) {
+            log.info("Filtering file " + targetFile.getAbsolutePath)
             val buf = new StringWriter
             val in = Source.fromFile(targetFile)
             in.getLines.foreach(l => {
@@ -114,7 +114,6 @@ object SbtFilterPlugin extends Plugin {
             val out = new PrintWriter(targetFile)
             out.print(buf.toString)
             out.close()
-            log.info("Done filtering")
           }
         }
     }
