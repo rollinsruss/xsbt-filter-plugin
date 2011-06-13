@@ -8,3 +8,4 @@ organization := "org.xsbtfilter"
 
 publishMavenStyle := true
 
+logLevel := Level.Debug

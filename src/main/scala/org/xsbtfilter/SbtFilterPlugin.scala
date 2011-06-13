@@ -18,7 +18,7 @@ import java.io._
 object SbtFilterPlugin extends Plugin {
   val FilterResources = config("filter-resources")
 
-  val filterResources = TaskKey[Unit]("filter-resources", "filters files and replaces values using maven-style format ${}")
+  val filterResources = TaskKey[Unit]("filter-resources", "filters files and replaces values using the maven-style format of ${}")
   //TODO provide more strict coupling to filter definitions and environment definitions, see README
   val currentFilterEnvSetting = SettingKey[String]("current-filter-env")
 
@@ -39,7 +39,7 @@ object SbtFilterPlugin extends Plugin {
         def filterPath = baseDirectory / "src" / "main" / "resources" / "filters"
         def filterSources = filterPath * "*.properties"
         def log = streams.log
-        log.info(filterPath.toString)
+        log.debug(filterPath.toString)
 
 
 
@@ -48,9 +48,9 @@ object SbtFilterPlugin extends Plugin {
           pathFile.getName.split("\\.")(0) -> pathFile.absolutePath
         })
 
-        log.info(envPropertyFilesMap.toString)
+        log.debug("Master property replacement list: " + envPropertyFilesMap.toString)
         val envProps = loadProperties(new BufferedReader(new FileReader(envPropertyFilesMap(curFilterEnvSetting))))
-        log.info("Using the following properties for filtering " + envProps.toString)
+        log.debug("Using the following properties for filtering " + envProps.toString)
 
         //TODO add sbt-related property values
         def sbtBaseProps: Map[String, String] = {
@@ -74,13 +74,13 @@ object SbtFilterPlugin extends Plugin {
         envProps.propertyNames.foreach(key => {
           replacements += (key.toString -> envProps.getProperty(key.toString))
         })
-        log.info("Master replacement list for filtering " + replacements.toString)
+        log.debug("Master replacement list for filtering " + replacements.toString)
 
         //actual processing happens here, should put it in more appropriate location for readability
         if (filterPath.exists) {
           //TODO need the proper output path, what setting to reference?
           val targetPath: java.io.File = target / "scala-2.8.1.final" / "classes"
-          log.info("Filtering target path " + targetPath.getAbsolutePath)
+          log.debug("Filtering target path " + targetPath.getAbsolutePath)
 
           (targetPath * "*").get.foreach(filterResource)
         } else {
@@ -94,9 +94,10 @@ object SbtFilterPlugin extends Plugin {
           //ensure file extension is in inclusion list
           //val extSplit: Array[String] = targetFile.getName.split(".")
           //val extension: String = extSplit.last
-          if (targetFile.isFile  && (fileName.contains(".properties") || fileName.contains(".xml"))){
-          //if (targetFile.isFile && filterIncExts.contains(extension)) {
-            log.info("Filtering file " + targetFile.getAbsolutePath)
+          if (targetFile.isFile && (fileName.contains(".properties") || fileName.contains(".xml"))) {
+            //if (targetFile.isFile && filterIncExts.contains(extension)) {
+            log.debug("Filtering file " + targetFile.getAbsolutePath)
+
             val buf = new StringWriter
             val in = Source.fromFile(targetFile)
             in.getLines.foreach(l => {
@@ -107,7 +108,7 @@ object SbtFilterPlugin extends Plugin {
                   line = line.replaceAll("\\$\\{\\s*" + key.toString + "\\s*\\}", value)
               }
               //ensure newline at the end, was getting whacked during initial testing
-              if(! line.contains("\n")) line = line + "\n" //newline was missing during initial testing
+              if (!line.contains("\n")) line = line + "\n" //newline was missing during initial testing
               buf.write(line)
             })
 
