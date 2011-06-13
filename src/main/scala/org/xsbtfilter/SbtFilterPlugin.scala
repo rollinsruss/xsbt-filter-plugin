@@ -41,8 +41,8 @@ object SbtFilterPlugin extends Plugin {
 //        (classDirectory,curFilterEnvSetting, filterIncExts, baseDirectory, streams) =>
 
   private def filterResourcesTask: Initialize[Task[Unit]] =
-    (currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams, target) map {
-      (curFilterEnvSetting, filterIncExts, baseDirectory, streams, target) =>
+    (classDirectory in Compile,currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams) map {
+      (classDir, curFilterEnvSetting, filterIncExts, baseDirectory, streams) =>
 
         //hard-coding this for now, gotta be a better way
         def filterPath = baseDirectory / "src" / "main" / "resources" / "filters"
@@ -86,8 +86,8 @@ object SbtFilterPlugin extends Plugin {
         //actual processing happens here, should put it in more appropriate location for readability
         if (filterPath.exists) {
           //TODO need the proper output path, what setting to reference?
-          val targetPath: java.io.File = target / "scala-2.8.1.final" / "classes"
-          //log.error(classDirectory.getAbsolutePath)
+          val targetPath: java.io.File = classDir
+
           log.debug("Filtering target path " + targetPath.getAbsolutePath)
 
           (targetPath * "*").get.foreach(filterResource)
@@ -148,9 +148,9 @@ object SbtFilterPlugin extends Plugin {
     filterMainResources <<= filterResourcesTask,
     currentFilterEnvSetting := currentFilterEnv,
     filterIncludeExtensions := filterIncludeExtensions _//,
+    //filterMainResources <<= filterMainResources.dependsOn(copyResources)
     //neither of these attempts worked at ensuring the task dependency, will require manual wiring for now by consuming projects
     //filterMainResources <<= filterResourcesTask.dependsOn(copyResources),
-    //filterMainResources <<= filterMainResources.dependsOn(copyResources)
 
   )
 }
