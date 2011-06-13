@@ -16,9 +16,14 @@ import xsbti.api.Path
 import java.io._
 
 object SbtFilterPlugin extends Plugin {
+
   val FilterResources = config("filter-resources")
 
-  val filterResources = TaskKey[Unit]("filter-resources", "filters files and replaces values using the maven-style format of ${}")
+  val filterMainResources = TaskKey[Unit]("filter-resources", "filters files and replaces values using the maven-style format of ${}")
+  filterMainResources.dependsOn(copyResources)//TODO this appears to have no effect
+  //TODO create test resources task
+  //override lazy val copyResources = filterMainResources dependsOn (copyResourcesAction)
+
   //TODO provide more strict coupling to filter definitions and environment definitions, see README
   val currentFilterEnvSetting = SettingKey[String]("current-filter-env")
 
@@ -31,17 +36,18 @@ object SbtFilterPlugin extends Plugin {
     propFile.close()
     loeadedProps
   }
+//  private def filterResourcesTask = (classDirectory,currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams) map {
+//        (classDirectory,curFilterEnvSetting, filterIncExts, baseDirectory, streams) =>
 
   private def filterResourcesTask: Initialize[Task[Unit]] =
     (currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams, target) map {
       (curFilterEnvSetting, filterIncExts, baseDirectory, streams, target) =>
 
+        //hard-coding this for now, gotta be a better way
         def filterPath = baseDirectory / "src" / "main" / "resources" / "filters"
         def filterSources = filterPath * "*.properties"
         def log = streams.log
         log.debug(filterPath.toString)
-
-
 
         val envPropertyFilesMap = HashMap[String, String]() ++ filterSources.getPaths.map(path => {
           val pathFile: java.io.File = new java.io.File(path)
@@ -136,10 +142,12 @@ object SbtFilterPlugin extends Plugin {
   }
 
   override lazy val settings = Seq(
-    filterResources <<= filterResourcesTask,
+    //filterMainResources <<= filterResourcesTask.dependsOn(copyResources),
+    filterMainResources <<= filterResourcesTask,
     currentFilterEnvSetting := currentFilterEnv,
-    filterIncludeExtensions := filterIncludeExtensions _
+    filterIncludeExtensions := filterIncludeExtensions _//,
+
+    //filterMainResources <<= filterMainResources.dependsOn(copyResources)
+
   )
-
-
 }
