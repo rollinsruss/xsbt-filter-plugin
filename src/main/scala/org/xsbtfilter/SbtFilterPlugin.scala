@@ -34,11 +34,12 @@ object SbtFilterPlugin extends Plugin {
 
   private def filterResourcesTask: Initialize[Task[Unit]] =
     (currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams, target) map {
-      (curFilterEnvSetting, filterIncExts, baseDirectory, streamss, target) =>
+      (curFilterEnvSetting, filterIncExts, baseDirectory, streams, target) =>
 
         def filterPath = baseDirectory / "src" / "main" / "resources" / "filters"
         def filterSources = filterPath * "*.properties"
-        streamss.log.info(filterPath.toString)
+        def log = streams.log
+        log.info(filterPath.toString)
 
 
 
@@ -46,9 +47,10 @@ object SbtFilterPlugin extends Plugin {
           val pathFile: java.io.File = new java.io.File(path)
           pathFile.getName.split("\\.")(0) -> pathFile.absolutePath
         })
-        streamss.log.info(envPropertyFilesMap.toString)
+
+        log.info(envPropertyFilesMap.toString)
         val envProps = loadProperties(new BufferedReader(new FileReader(envPropertyFilesMap(curFilterEnvSetting))))
-        streamss.log.info("Using the following properties for filtering " + envProps.toString)
+        log.info("Using the following properties for filtering " + envProps.toString)
 
         //TODO add sbt-related property values
         def sbtBaseProps: Map[String, String] = {
@@ -72,25 +74,28 @@ object SbtFilterPlugin extends Plugin {
         envProps.propertyNames.foreach(key => {
           replacements += (key.toString -> envProps.getProperty(key.toString))
         })
-        streamss.log.info("Master replacement list for filtering " + replacements.toString)
+        log.info("Master replacement list for filtering " + replacements.toString)
 
         //actual processing happens here, should put it in more appropriate location for readability
         if (filterPath.exists) {
           //TODO need the proper output path, what setting to reference?
           val targetPath: java.io.File = target / "scala-2.8.1.final" / "classes"
-          streamss.log.info("Filtering target path " + targetPath.getAbsolutePath)
+          log.info("Filtering target path " + targetPath.getAbsolutePath)
 
           (targetPath * "*").get.foreach(filterResource)
         } else {
-          streamss.log.error(filterPath.toString + " is missing!!")
+          log.error(filterPath.toString + " is missing!!")
         }
 
         //TODO extract this to take a map and single file
         def filterResource(targetFile: java.io.File): Unit = {
-          streamss.log.info("Filtering file " + targetFile.getAbsolutePath)
+          log.info("Filtering file " + targetFile.getAbsolutePath)
+          val fileName: String = targetFile.getName
+          //TODO implement some greatly improved matcher on inclusion list
           //ensure file extension is in inclusion list
-          val extension: String = targetFile.getName.split(".").last
-          if (targetFile.isFile){
+          //val extSplit: Array[String] = targetFile.getName.split(".")
+          //val extension: String = extSplit.last
+          if (targetFile.isFile  && (fileName.contains(".properties") || fileName.contains(".xml"))){
           //if (targetFile.isFile && filterIncExts.contains(extension)) {
             val buf = new StringWriter
             val in = Source.fromFile(targetFile)
@@ -101,14 +106,15 @@ object SbtFilterPlugin extends Plugin {
                 case (key, value) =>
                   line = line.replaceAll("\\$\\{\\s*" + key.toString + "\\s*\\}", value)
               }
-              //TODO ensure newline at the end, was getting whacked
+              //ensure newline at the end, was getting whacked during initial testing
+              if(! line.contains("\n")) line = line + "\n" //newline was missing during initial testing
               buf.write(line)
             })
 
             val out = new PrintWriter(targetFile)
             out.print(buf.toString)
             out.close()
-            streamss.log.info("Done filtering")
+            log.info("Done filtering")
           }
         }
     }
