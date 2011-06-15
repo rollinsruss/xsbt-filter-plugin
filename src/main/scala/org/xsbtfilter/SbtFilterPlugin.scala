@@ -144,13 +144,8 @@ object SbtFilterPlugin extends Plugin {
   }
 
   override lazy val settings = Seq(
-
-    filterMainResources <<= filterResourcesTask,
+    filterMainResources <<= filterResourcesTask triggeredBy(copyResources in Compile),
     currentFilterEnvSetting := currentFilterEnv,
-    filterIncludeExtensions := filterIncludeExtensions _//,
-    //filterMainResources <<= filterMainResources.dependsOn(copyResources)
-    //neither of these attempts worked at ensuring the task dependency, will require manual wiring for now by consuming projects
-    //filterMainResources <<= filterResourcesTask.dependsOn(copyResources),
-
+    filterIncludeExtensions := filterIncludeExtensions
   )
 }
