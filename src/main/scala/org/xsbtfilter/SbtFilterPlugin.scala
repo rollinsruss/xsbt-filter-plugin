@@ -19,11 +19,8 @@ object SbtFilterPlugin extends Plugin {
 
   val FilterResources = config("filter-resources")extend(Runtime)
 
-  val filterMainResources = TaskKey[Unit]("filter-resources", "filters files and replaces values using the maven-style format of ${}")
-  filterMainResources.dependsOn(copyResources)//TODO this appears to have no effect
-  //TODO create test resources task
-  //perhaps its best not to require dependencies and allow the end user to wire up the build the way they want it
-  //override lazy val copyResources = filterMainResources dependsOn (copyResourcesAction)
+  val filterMainResources = TaskKey[Unit]("filter-resources", "filters main resource files and replaces values using the maven-style format of ${}")
+  val filterTestResources = TaskKey[Unit]("filter-test-resources", "filters test resource files and replaces values using the maven-style format of ${}")
 
   //TODO provide more strict coupling to filter definitions and environment definitions, see README
   val currentFilterEnvSetting = SettingKey[String]("current-filter-env")
