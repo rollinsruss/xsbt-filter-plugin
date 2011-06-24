@@ -3,16 +3,11 @@ package org.xsbtfilter
 import sbt._
 import Keys._
 
-import sbt.Load.BuildStructure
-import sbt.CommandSupport._
-import sbt.complete._
-import sbt.complete.Parsers._
 import collection.Seq
 import io.Source
 import Project.Initialize
 import java.util.{Enumeration, Properties => JProperties}
 import scala.collection.immutable._
-import xsbti.api.Path
 import java.io._
 
 object SbtFilterPlugin extends Plugin {
@@ -29,17 +24,16 @@ object SbtFilterPlugin extends Plugin {
   val filterIncludeExtensions = SettingKey[List[String] => List[String]]("filter-include-extensions")
 
   private def loadProperties(propFile: Reader): JProperties = {
-    val loeadedProps = new JProperties
-    loeadedProps.load(propFile)
+    val loadedProps = new JProperties
+    loadedProps.load(propFile)
     propFile.close()
-    loeadedProps
+    loadedProps
   }
-//  private def filterResourcesTask = (classDirectory,currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams) map {
-//        (classDirectory,curFilterEnvSetting, filterIncExts, baseDirectory, streams) =>
 
   private def filterResourcesTask: Initialize[Task[Unit]] =
     (classDirectory in Compile,currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams) map {
       (classDir, curFilterEnvSetting, filterIncExts, baseDirectory, streams) =>
+        log.info("Filtering for environment: "+curFilterEnvSetting )
 
         //hard-coding this for now, gotta be a better way
         def filterPath = baseDirectory / "src" / "main" / "resources" / "filters"
@@ -64,7 +58,7 @@ object SbtFilterPlugin extends Plugin {
             "project.organization" -> "TODO", //projectOrganization.value,
             "project.version" -> "TODO", //projectVersion.value.toString,
             "build.scala.versions" -> "TODO", //buildScalaVersions.value,
-            "filter.env" -> currentFilterEnv)
+            "filter.env" -> curFilterEnvSetting)
         }
 
         //finalize replacement values, where file def overrides base props
@@ -133,16 +127,31 @@ object SbtFilterPlugin extends Plugin {
     List(".properties", ".xml")
   }
 
-  /**
-   * default environment is dev
-   */
-  private def currentFilterEnv = {
-    "development"
-  }
+
 
   override lazy val settings = Seq(
     filterMainResources <<= filterResourcesTask triggeredBy(copyResources in Compile),
-    currentFilterEnvSetting := currentFilterEnv,
-    filterIncludeExtensions := filterIncludeExtensions
+    currentFilterEnvSetting := "development",
+    filterIncludeExtensions := filterIncludeExtensions,
+    //filterTestResources <<= filterResourcesTask(classDirectory in Test,"test",null,baseDirectory in Compile,streams) triggeredBy(copyResources in Test) //map {x =>
+    filterTestResources <<= filterResourcesTask triggeredBy(copyResources in Test),
+    //testOptions in Test := (Seq(currentFilterEnvSetting := "test"))
+    //compile in Test <<= (compile in Test) map {x =>
+    copyResources in Test <<= (copyResources in Test) map {x=>
+
+      currentFilterEnvSetting := "test"
+      x
+    }
+    //update test settings here
+
+      //seq(currentFilterEnvSetting := "test")
+        //x.currentFilterEnvSetting = "test"
+    //    currentFilterEnvSetting := "test"
+
+
+    //  x
+   // }
+
   )
+
 }

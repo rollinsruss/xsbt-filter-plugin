@@ -6,6 +6,8 @@ name := "xsbt-filter"
 
 organization := "org.xsbtfilter"
 
+version := "0.2"
+
 publishMavenStyle := true
 
 logLevel := Level.Debug
