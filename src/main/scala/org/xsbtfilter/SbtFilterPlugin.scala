@@ -3,54 +3,50 @@ package org.xsbtfilter
 import sbt._
 import Keys._
 
-import sbt.Load.BuildStructure
-import sbt.CommandSupport._
-import sbt.complete._
-import sbt.complete.Parsers._
 import collection.Seq
 import io.Source
 import Project.Initialize
 import java.util.{Enumeration, Properties => JProperties}
 import scala.collection.immutable._
-import xsbti.api.Path
 import java.io._
+import scala.collection.JavaConverters._
+
 
 object SbtFilterPlugin extends Plugin {
+  implicit def javaEnumeration2Iterator[A](e: Enumeration[A]) = new Iterator[A] {
+    def next = e.nextElement
+    def hasNext = e.hasMoreElements
+  }
 
-  val FilterResources = config("filter-resources")extend(Runtime)
-
-  val filterMainResources = TaskKey[Unit]("filter-resources", "filters main resource files and replaces values using the maven-style format of ${}")
-  val filterTestResources = TaskKey[Unit]("filter-test-resources", "filters test resource files and replaces values using the maven-style format of ${}")
+  val FilterResources = config("filter-resources") extend (Compile)
+  val filterResources = TaskKey[Unit]("filter-resources", "filters resource files and replaces values using the maven-style format of ${}")
 
   //TODO provide more strict coupling to filter definitions and environment definitions, see README
-  val currentFilterEnvSetting = SettingKey[String]("current-filter-env")
+  val filterEnv = SettingKey[String]("current-filter-env")
 
   //val filterExcludeFiles = SettingKey[PathFinder => PathFinder]("filter-exclude-files")
   val filterIncludeExtensions = SettingKey[List[String] => List[String]]("filter-include-extensions")
 
   private def loadProperties(propFile: Reader): JProperties = {
-    val loeadedProps = new JProperties
-    loeadedProps.load(propFile)
+    val loadedProps = new JProperties
+    loadedProps.load(propFile)
     propFile.close()
-    loeadedProps
+    loadedProps
   }
-//  private def filterResourcesTask = (classDirectory,currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams) map {
-//        (classDirectory,curFilterEnvSetting, filterIncExts, baseDirectory, streams) =>
 
   private def filterResourcesTask: Initialize[Task[Unit]] =
-    (classDirectory in Compile,currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams) map {
-      (classDir, curFilterEnvSetting, filterIncExts, baseDirectory, streams) =>
+    (classDirectory, filterEnv, filterIncludeExtensions, baseDirectory, streams, name, organization, version, scalaVersion) map {
+      (classDir, curFilterEnvSetting, filterIncExts, baseDirectory, streams, name, organization, version, scalaVersion) =>
+        log.info("Filtering for environment: " + curFilterEnvSetting)
 
-        //hard-coding this for now, gotta be a better way
+        //TODO hard-coding this for now, should implement a setting for defining paths for processing
         def filterPath = baseDirectory / "src" / "main" / "resources" / "filters"
         def filterSources = filterPath * "*.properties"
         def log = streams.log
+
         log.debug(filterPath.toString)
 
-        val envPropertyFilesMap = HashMap[String, String]() ++ filterSources.getPaths.map(path => {
-          val pathFile: java.io.File = new java.io.File(path)
-          pathFile.getName.split("\\.")(0) -> pathFile.absolutePath
-        })
+        val envPropertyFilesMap = filterSources.get.map(file => (file.base, file)).toMap
 
         log.debug("Master property replacement list: " + envPropertyFilesMap.toString)
         val envProps = loadProperties(new BufferedReader(new FileReader(envPropertyFilesMap(curFilterEnvSetting))))
@@ -59,21 +55,16 @@ object SbtFilterPlugin extends Plugin {
         //TODO add sbt-related property values
         def sbtBaseProps: Map[String, String] = {
           Map(
-            "project.name" -> "TODO", // projectName.value,
-            "project.name" -> "TODO", //projectName.value,
-            "project.organization" -> "TODO", //projectOrganization.value,
-            "project.version" -> "TODO", //projectVersion.value.toString,
-            "build.scala.versions" -> "TODO", //buildScalaVersions.value,
-            "filter.env" -> currentFilterEnv)
+            "project.name" -> name, // projectName.value,
+            "project.organization" -> organization, //projectOrganization.value,
+            "project.version" -> version, //projectVersion.value.toString,
+            "build.scala.version" -> scalaVersion, //buildScalaVersions.value,
+            "filter.env" -> curFilterEnvSetting)
         }
 
         //finalize replacement values, where file def overrides base props
         val replacements: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map() ++ sbtBaseProps
-        implicit def javaEnumeration2Iterator[A](e: Enumeration[A]) = new Iterator[A] {
-          def next = e.nextElement
 
-          def hasNext = e.hasMoreElements
-        }
         //better way to do this?
         envProps.propertyNames.foreach(key => {
           replacements += (key.toString -> envProps.getProperty(key.toString))
@@ -87,7 +78,8 @@ object SbtFilterPlugin extends Plugin {
 
           log.debug("Filtering target path " + targetPath.getAbsolutePath)
 
-          (targetPath * "*").get.foreach(filterResource)
+          //TODO implement some greatly improved matcher on inclusion list
+          (targetPath * ("*.properties" | "*.xml")).get.foreach(filterResource)
         } else {
           log.error(filterPath.toString + " is missing!!")
         }
@@ -95,12 +87,8 @@ object SbtFilterPlugin extends Plugin {
         //TODO extract this to take a map and single file
         def filterResource(targetFile: java.io.File): Unit = {
           val fileName: String = targetFile.getName
-          //TODO implement some greatly improved matcher on inclusion list
-          //ensure file extension is in inclusion list
-          //val extSplit: Array[String] = targetFile.getName.split(".")
-          //val extension: String = extSplit.last
-          if (targetFile.isFile && (fileName.contains(".properties") || fileName.contains(".xml"))) {
-            //if (targetFile.isFile && filterIncExts.contains(extension)) {
+
+          if (targetFile.isFile) {
             log.debug("Filtering file " + targetFile.getAbsolutePath)
 
             val buf = new StringWriter
@@ -133,16 +121,18 @@ object SbtFilterPlugin extends Plugin {
     List(".properties", ".xml")
   }
 
-  /**
-   * default environment is dev
-   */
-  private def currentFilterEnv = {
-    "development"
-  }
+  val defineFilter: Seq[Setting[_]] = Seq(
+    filterResources <<= filterResourcesTask triggeredBy (copyResources)
 
-  override lazy val settings = Seq(
-    filterMainResources <<= filterResourcesTask triggeredBy(copyResources in Compile),
-    currentFilterEnvSetting := currentFilterEnv,
+  )
+  val filterBase: Seq[Setting[_]] = Seq(
+    filterEnv := "development",
     filterIncludeExtensions := filterIncludeExtensions
   )
+
+  override lazy val settings = filterBase ++
+      inConfig(Compile)(defineFilter) ++
+      inConfig(Test)(defineFilter ++ Seq(filterEnv := "test"))
+
+
 }
