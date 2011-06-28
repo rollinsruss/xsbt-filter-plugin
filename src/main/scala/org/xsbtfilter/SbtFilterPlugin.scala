@@ -9,16 +9,16 @@ import Project.Initialize
 import java.util.{Enumeration, Properties => JProperties}
 import scala.collection.immutable._
 import java.io._
+import scala.collection.JavaConverters._
+
 
 object SbtFilterPlugin extends Plugin {
 
-  val FilterResources = config("filter-resources")extend(Runtime)
-
-  val filterMainResources = TaskKey[Unit]("filter-resources", "filters main resource files and replaces values using the maven-style format of ${}")
-  val filterTestResources = TaskKey[Unit]("filter-test-resources", "filters test resource files and replaces values using the maven-style format of ${}")
+  val FilterResources = config("filter-resources") extend (Compile)
+  val filterResources = TaskKey[Unit]("filter-resources", "filters main resource files and replaces values using the maven-style format of ${}")
 
   //TODO provide more strict coupling to filter definitions and environment definitions, see README
-  val currentFilterEnvSetting = SettingKey[String]("current-filter-env")
+  val filterEnv = SettingKey[String]("current-filter-env")
 
   //val filterExcludeFiles = SettingKey[PathFinder => PathFinder]("filter-exclude-files")
   val filterIncludeExtensions = SettingKey[List[String] => List[String]]("filter-include-extensions")
@@ -31,9 +31,9 @@ object SbtFilterPlugin extends Plugin {
   }
 
   private def filterResourcesTask: Initialize[Task[Unit]] =
-    (classDirectory in Compile,currentFilterEnvSetting, filterIncludeExtensions, baseDirectory, streams) map {
+    (classDirectory, filterEnv, filterIncludeExtensions, baseDirectory, streams) map {
       (classDir, curFilterEnvSetting, filterIncExts, baseDirectory, streams) =>
-        log.info("Filtering for environment: "+curFilterEnvSetting )
+        log.info("Filtering for environment: " + curFilterEnvSetting)
 
         //hard-coding this for now, gotta be a better way
         def filterPath = baseDirectory / "src" / "main" / "resources" / "filters"
@@ -63,12 +63,13 @@ object SbtFilterPlugin extends Plugin {
 
         //finalize replacement values, where file def overrides base props
         val replacements: scala.collection.mutable.Map[String, String] = scala.collection.mutable.Map() ++ sbtBaseProps
+
         implicit def javaEnumeration2Iterator[A](e: Enumeration[A]) = new Iterator[A] {
           def next = e.nextElement
-
           def hasNext = e.hasMoreElements
         }
-        //better way to do this?
+
+//        //better way to do this?
         envProps.propertyNames.foreach(key => {
           replacements += (key.toString -> envProps.getProperty(key.toString))
         })
@@ -81,7 +82,7 @@ object SbtFilterPlugin extends Plugin {
 
           log.debug("Filtering target path " + targetPath.getAbsolutePath)
 
-          (targetPath * "*").get.foreach(filterResource)
+          (targetPath * ("*.properties" | "*.xml")).get.foreach(filterResource)
         } else {
           log.error(filterPath.toString + " is missing!!")
         }
@@ -127,31 +128,18 @@ object SbtFilterPlugin extends Plugin {
     List(".properties", ".xml")
   }
 
-
-
-  override lazy val settings = Seq(
-    filterMainResources <<= filterResourcesTask triggeredBy(copyResources in Compile),
-    currentFilterEnvSetting := "development",
-    filterIncludeExtensions := filterIncludeExtensions,
-    //filterTestResources <<= filterResourcesTask(classDirectory in Test,"test",null,baseDirectory in Compile,streams) triggeredBy(copyResources in Test) //map {x =>
-    filterTestResources <<= filterResourcesTask triggeredBy(copyResources in Test),
-    //testOptions in Test := (Seq(currentFilterEnvSetting := "test"))
-    //compile in Test <<= (compile in Test) map {x =>
-    copyResources in Test <<= (copyResources in Test) map {x=>
-
-      currentFilterEnvSetting := "test"
-      x
-    }
-    //update test settings here
-
-      //seq(currentFilterEnvSetting := "test")
-        //x.currentFilterEnvSetting = "test"
-    //    currentFilterEnvSetting := "test"
-
-
-    //  x
-   // }
+  val defineFilter: Seq[Setting[_]] = Seq(
+    filterResources <<= filterResourcesTask triggeredBy (copyResources)
 
   )
+  val filterBase: Seq[Setting[_]] = Seq(
+    filterEnv := "development" ,
+    filterIncludeExtensions := filterIncludeExtensions
+  )
+
+  override lazy val settings = filterBase ++
+        inConfig(Compile)(defineFilter) ++
+        inConfig(Test)(defineFilter ++ Seq(filterEnv:="test"))
+
 
 }

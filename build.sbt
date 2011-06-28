@@ -14,7 +14,7 @@ logLevel := Level.Debug
 
 seq( org.xsbtfilter.SbtFilterPlugin.settings : _*)
 
-currentFilterEnvSetting := "development" //or whatever filter you're using
+//currentFilterEnvSetting := "development" //or whatever filter you're using
 
 
 //procFilterResources := filterResources
