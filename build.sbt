@@ -6,13 +6,14 @@ name := "xsbt-filter"
 
 organization := "org.xsbtfilter"
 
-version := "0.2"
+version := "0.3"
 
 publishMavenStyle := true
 
 logLevel := Level.Debug
 
-seq( org.xsbtfilter.SbtFilterPlugin.settings : _*)
+//uncomment for local testing
+//seq( org.xsbtfilter.SbtFilterPlugin.settings : _*)
 
 //currentFilterEnvSetting := "development" //or whatever filter you're using
 
