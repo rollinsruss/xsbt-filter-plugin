@@ -40,7 +40,7 @@ object SbtFilterPlugin extends Plugin {
         log.info("Filtering for environment: " + curFilterEnvSetting)
 
         //TODO hard-coding this for now, should implement a setting for defining paths for processing
-        def filterPath = baseDirectory / "src" / "main" / "resources" / "filters"
+        def filterPath = baseDirectory / "src" / "main" / "filters"
         def filterSources = filterPath * "*.properties"
         def log = streams.log
 
@@ -90,7 +90,9 @@ object SbtFilterPlugin extends Plugin {
 
           if (targetFile.isFile) {
             log.debug("Filtering file " + targetFile.getAbsolutePath)
-
+            //TODO see Mark's suggestion for using IO here:
+            //https://github.com/harrah/xsbt/blob/0.10/project/Transform.scala
+            //http://groups.google.com/group/simple-build-tool/tree/browse_frm/thread/816a98ecee06ee6d/52e2fd7a6e598a2e?rnum=1&q=xsbt-filter&_done=%2Fgroup%2Fsimple-build-tool%2Fbrowse_frm%2Fthread%2F816a98ecee06ee6d%2F52e2fd7a6e598a2e%3Flnk%3Dgst%26q%3Dxsbt-filter%26#doc_9681b118d1f3a3a6
             val buf = new StringWriter
             val in = Source.fromFile(targetFile)
             in.getLines.foreach(l => {

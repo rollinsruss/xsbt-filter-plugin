@@ -110,7 +110,7 @@ trait SBTFilterPlugin extends BasicScalaProject with MavenStyleScalaPaths {
     substitute(envProps, dest)
   }
 
-  def filterPath = mainSourcePath / "filters"
+  def filterPath = mainSourcePath / "src/main/filters"
 
   //TODO add another property value the specify the list of extensions to include in filter replacement( .properties, .xml, .conf)
 
