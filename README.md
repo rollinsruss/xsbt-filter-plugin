@@ -10,7 +10,7 @@ And this to your build.sbt at the project root:
 
 `seq( org.xsbtfilter.SbtFilterPlugin.settings : _*)`
 
-`currentFilterEnvSetting := "development" //or whatever filter you're using`
+`filterEnv := "development" //or whatever filter you're using`
 
 
 Then, create an src/main/resources/filters directory and add your filter definitions (eg, development.properties, test.properties, beta.properties, etc.)
