@@ -4,7 +4,7 @@ Just starting out, still a work in progress. Intent here is to create a plugin a
 
 Once the jar is built (note that two lines in build.sbt will need to be commented out since they're self-referential for local testing) and deployed (sbt publish-local) by adding this line to your project/plugins/build.sbt:
 
-`libraryDependencies += "org.xsbtfilter" %% "xsbt-filter" % "0.3"`
+`addSbtPlugin("org.xsbtfilter" % "xsbt-filter" % "0.4")`
 
 And this to your build.sbt at the project root:
 
@@ -13,7 +13,7 @@ And this to your build.sbt at the project root:
 `filterEnv := "development" //or whatever filter you're using`
 
 
-Then, create an src/main/resources/filters directory and add your filter definitions (eg, development.properties, test.properties, beta.properties, etc.)
+Then, create an src/main/filters directory and add your filter definitions (eg, development.properties, test.properties, beta.properties, etc.)
 
 ###Development testing
 
@@ -25,8 +25,11 @@ This release is a minimal release that supports filtering .properties and .xml f
 Requires building with sbt-launch-0.10.1.jar
 
 ##0.3
-
 Moved the "filters" directory outside of resources to align with the Maven convention
+
+
+##0.4
+Updated for sbt-0.11.0
 
 ##Outstanding tasks
 * TODO: fix the problem with changing currentFilterEnvSetting and requiring a clean before new replacement vals are present
